@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly Countdown</title>
+<meta name="description" content="A weekly countdown gauge showing how much of the week until a recurring time has elapsed.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23f3ead6' stroke='%23444' stroke-width='6'/><path d='M50 50 L50 18' stroke='%23c0392b' stroke-width='8' stroke-linecap='round'/></svg>">
+<style>
+  :root{
+    --panel-1:#4a4d52;
+    --panel-2:#33363a;
+    --panel-3:#26282b;
+    --panel-edge:#17181a;
+    --panel-hi:rgba(255,255,255,.16);
+    --bezel-1:#c9ccd1;
+    --bezel-2:#6d7278;
+    --face-1:#fbf6ea;
+    --face-2:#e9e0cd;
+    --face-edge:#bdb29a;
+    --ink:#23252a;
+    --ink-soft:#5d6068;
+    --engrave:#d7dade;
+    --engrave-dim:#9aa0a8;
+    --accent:#2f6f9e;
+    --accent-glow:rgba(76,168,235,.55);
+    --red:#c0392b;
+    --zone-ok:#3f8f55;
+    --zone-warn:#d79a25;
+    --zone-hot:#c0392b;
+    --trough:#1b1d20;
+    --screw:#8d9298;
+    --shadow:rgba(0,0,0,.45);
+    --page-1:#2a2c30;
+    --page-2:#191a1d;
+  }
+  :root:not([data-theme="dark"]){
+    --panel-1:#e7e9ec;
+    --panel-2:#cdd1d6;
+    --panel-3:#b9bec4;
+    --panel-edge:#8f959c;
+    --panel-hi:rgba(255,255,255,.75);
+    --bezel-1:#fdfdfe;
+    --bezel-2:#9aa0a7;
+    --engrave:#3c4046;
+    --engrave-dim:#6b7178;
+    --screw:#9ba1a8;
+    --shadow:rgba(0,0,0,.22);
+    --page-1:#dfe2e6;
+    --page-2:#b6bbc1;
+    --trough:#8d939a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --panel-1:#4a4d52; --panel-2:#33363a; --panel-3:#26282b; --panel-edge:#17181a;
+      --panel-hi:rgba(255,255,255,.16);
+      --bezel-1:#c9ccd1; --bezel-2:#6d7278;
+      --engrave:#d7dade; --engrave-dim:#9aa0a8;
+      --screw:#8d9298; --shadow:rgba(0,0,0,.45);
+      --page-1:#2a2c30; --page-2:#191a1d; --trough:#1b1d20;
+    }
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    padding:20px 16px 24px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:safe center;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--engrave);
+    background:
+      radial-gradient(120% 90% at 50% 0%, var(--page-1), var(--page-2) 70%);
+    background-attachment:fixed;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .panel{
+    position:relative;
+    width:100%;
+    max-width:560px;
+    margin-inline:auto;
+    padding:24px 22px 20px;
+    display:grid;
+    grid-template-columns:1fr;
+    grid-template-areas:"head" "gauge" "meter" "plates" "settings" "foot";
+    column-gap:24px;
+    border-radius:22px;
+    background:
+      linear-gradient(180deg, var(--panel-1), var(--panel-2) 45%, var(--panel-3));
+    background-blend-mode:normal;
+    box-shadow:
+      inset 0 1px 0 var(--panel-hi),
+      inset 0 -2px 6px rgba(0,0,0,.35),
+      0 1px 0 var(--panel-edge),
+      0 18px 40px -12px var(--shadow),
+      0 40px 80px -30px var(--shadow);
+    overflow:hidden;
+  }
+  /* brushed-metal grain */
+  .panel::before{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.35;
+    background:repeating-linear-gradient(90deg,
+      rgba(255,255,255,.055) 0 1px, rgba(0,0,0,.04) 1px 2px, transparent 2px 4px);
+    mix-blend-mode:overlay;
+  }
+  .panel.flash{animation:flash 1.6s ease-out}
+  @keyframes flash{
+    0%{box-shadow:inset 0 1px 0 var(--panel-hi), 0 0 0 2px var(--accent-glow), 0 18px 40px -12px var(--shadow)}
+    100%{box-shadow:inset 0 1px 0 var(--panel-hi), 0 0 0 0 transparent, 0 18px 40px -12px var(--shadow)}
+  }
+
+  .screw{
+    position:absolute; width:13px; height:13px; border-radius:50%;
+    background:radial-gradient(circle at 34% 30%, #fff, var(--screw) 45%, #4c5055 100%);
+    box-shadow:inset 0 -1px 2px rgba(0,0,0,.5), 0 1px 1px rgba(255,255,255,.18);
+  }
+  .screw::after{
+    content:""; position:absolute; inset:0; margin:auto;
+    width:8px; height:2px; border-radius:1px; background:rgba(0,0,0,.55);
+    transform:rotate(28deg);
+  }
+  .screw.tl{top:11px;left:11px} .screw.tr{top:11px;right:11px}
+  .screw.bl{bottom:11px;left:11px} .screw.br{bottom:11px;right:11px}
+
+  header{
+    grid-area:head;
+    position:relative; z-index:1;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+    padding:0 4px;
+  }
+  .titles{min-width:0}
+  h1{
+    margin:0; font-size:clamp(17px,4.4vw,21px); letter-spacing:.14em; text-transform:uppercase;
+    font-weight:700; color:var(--engrave);
+    text-shadow:0 1px 0 rgba(0,0,0,.45), 0 -1px 0 rgba(255,255,255,.08);
+    overflow-wrap:anywhere;
+  }
+  .subtitle{
+    margin:5px 0 0; font-size:13px; color:var(--engrave-dim); letter-spacing:.03em;
+  }
+  .gear{
+    flex:none; width:38px; height:38px; border-radius:10px; cursor:pointer;
+    display:grid; place-items:center; color:var(--engrave-dim);
+    border:1px solid rgba(0,0,0,.4);
+    background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(0,0,0,.18));
+    box-shadow:inset 0 1px 0 var(--panel-hi), 0 2px 4px rgba(0,0,0,.3);
+  }
+  .gear:hover{color:var(--engrave)}
+  .gear:active{box-shadow:inset 0 2px 5px rgba(0,0,0,.5)}
+  .gear:focus-visible, .btn:focus-visible, select:focus-visible, input:focus-visible{
+    outline:2px solid var(--accent-glow); outline-offset:2px;
+  }
+
+  /* ---- gauge ---- */
+  .gauge-wrap{grid-area:gauge; position:relative; z-index:1; margin-top:12px}
+  svg.gauge{display:block; width:100%; height:auto}
+  .needle{transition:transform .6s cubic-bezier(.2,.9,.25,1)}
+  .prog-arc{transition:stroke-dasharray .6s cubic-bezier(.2,.9,.25,1)}
+
+  /* ---- linear meter ---- */
+  .meter{
+    grid-area:meter;
+    position:relative; z-index:1; margin:14px 4px 0;
+  }
+  .meter-scale{
+    display:flex; justify-content:space-between;
+    font-size:11px; letter-spacing:.1em; color:var(--engrave-dim); margin-bottom:6px;
+  }
+  .trough{
+    position:relative; height:26px; border-radius:8px; overflow:hidden;
+    background:linear-gradient(180deg, var(--trough), color-mix(in srgb, var(--trough) 70%, #fff 8%));
+    box-shadow:inset 0 3px 6px rgba(0,0,0,.65), inset 0 -1px 0 rgba(255,255,255,.08), 0 1px 0 var(--panel-hi);
+  }
+  .fill{
+    position:absolute; inset:2px auto 2px 2px; width:0; border-radius:6px;
+    background:linear-gradient(180deg, #7fd0a0, #35915b 60%, #226b41);
+    box-shadow:0 0 12px rgba(80,200,140,.35), inset 0 1px 0 rgba(255,255,255,.5);
+    transition:width .6s cubic-bezier(.2,.9,.25,1), background .8s linear, box-shadow .8s linear;
+  }
+  .fill.warn{
+    background:linear-gradient(180deg,#f2cf82,#d79a25 60%,#9e6c10);
+    box-shadow:0 0 12px rgba(230,175,60,.4), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  .fill.hot{
+    background:linear-gradient(180deg,#f0907f,#c0392b 60%,#8a2318);
+    box-shadow:0 0 14px rgba(220,80,60,.45), inset 0 1px 0 rgba(255,255,255,.45);
+  }
+  /* segment grille + glass */
+  .trough::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0) 46%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.42) 0 2px, transparent 2px 9px);
+  }
+  .ticks-row{
+    display:flex; justify-content:space-between; margin-top:5px;
+    font-size:10px; color:var(--engrave-dim); letter-spacing:.06em;
+  }
+
+  /* ---- readout plates ---- */
+  .plates{
+    grid-area:plates;
+    position:relative; z-index:1;
+    display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
+    margin:16px 4px 0;
+  }
+  .plate{
+    padding:11px 13px; border-radius:11px;
+    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.20));
+    border:1px solid rgba(0,0,0,.35);
+    box-shadow:inset 0 1px 0 var(--panel-hi), 0 2px 5px rgba(0,0,0,.25);
+    min-width:0;
+  }
+  .plate.wide{grid-column:1 / -1}
+  .plate .k{
+    font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--engrave-dim);
+  }
+  .plate .v{
+    margin-top:4px; font-size:clamp(15px,4.3vw,19px); font-weight:650; color:var(--engrave);
+    font-variant-numeric:tabular-nums;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    overflow-wrap:anywhere;
+  }
+  .plate .v.big{font-size:clamp(20px,6vw,27px); letter-spacing:-.01em; white-space:nowrap}
+  .plate .v.small{font-size:13.5px; font-weight:500; letter-spacing:0; white-space:nowrap}
+
+  /* ---- settings drawer ---- */
+  .settings{
+    grid-area:settings;
+    position:relative; z-index:1; margin:14px 4px 0; padding:0 14px;
+    max-height:0; overflow:hidden; opacity:0;
+    border-radius:12px;
+    background:linear-gradient(180deg, rgba(0,0,0,.26), rgba(0,0,0,.12));
+    border:1px solid transparent;
+    transition:max-height .35s ease, opacity .25s ease, padding .35s ease, border-color .3s;
+  }
+  .settings.open{max-height:420px; opacity:1; padding:14px; border-color:rgba(0,0,0,.4)}
+  .field{display:block; margin-bottom:12px}
+  .field:last-child{margin-bottom:2px}
+  .field span{
+    display:block; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--engrave-dim); margin-bottom:5px;
+  }
+  select,input[type=time],input[type=text]{
+    width:100%; padding:9px 10px; font-size:15px; font-family:inherit;
+    color:var(--engrave); border-radius:8px; border:1px solid rgba(0,0,0,.45);
+    background:linear-gradient(180deg, rgba(0,0,0,.30), rgba(255,255,255,.05));
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.4);
+  }
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .btn{
+    margin-top:4px; padding:9px 13px; font:inherit; font-size:13px; cursor:pointer;
+    color:var(--engrave); border-radius:9px; border:1px solid rgba(0,0,0,.45);
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(0,0,0,.18));
+    box-shadow:inset 0 1px 0 var(--panel-hi), 0 2px 4px rgba(0,0,0,.3);
+  }
+  .btn:active{box-shadow:inset 0 2px 5px rgba(0,0,0,.5)}
+
+  footer{
+    grid-area:foot;
+    position:relative; z-index:1;
+    margin:14px 4px 2px; font-size:11px; color:var(--engrave-dim); letter-spacing:.04em;
+    display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  @media (min-width:900px){
+    body{padding:16px}
+    .panel{
+      max-width:min(1040px,94vw);
+      grid-template-columns:minmax(300px,0.92fr) 1.08fr;
+      grid-template-rows:auto auto auto auto 1fr;
+      grid-template-areas:
+        "gauge head"
+        "gauge meter"
+        "gauge plates"
+        "gauge settings"
+        "gauge foot";
+    }
+    .gauge-wrap{align-self:center; width:100%; margin:0 auto; max-width:470px}
+    footer{align-self:end; margin-bottom:0}
+    h1{font-size:23px}
+    .trough{height:30px}
+    .plate{padding:13px 15px}
+    .plate .v.big{font-size:30px}
+    .plate .v.small{font-size:15px}
+    .meter{margin-top:16px}
+  }
+  /* shorter windows: shrink the dial rather than start scrolling */
+  @media (min-width:900px) and (max-height:560px){ .gauge-wrap{max-width:390px} }
+  @media (min-width:900px) and (max-height:460px){ .gauge-wrap{max-width:320px} }
+
+  @media (max-width:420px){
+    .plates{grid-template-columns:1fr}
+    .row{grid-template-columns:1fr}
+    .panel{padding:20px 14px 16px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.01ms !important; animation-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+<main class="panel" id="panel">
+  <span class="screw tl"></span><span class="screw tr"></span>
+  <span class="screw bl"></span><span class="screw br"></span>
+
+  <header>
+    <div class="titles">
+      <h1 id="label">Weekly Reset</h1>
+      <p class="subtitle" id="targetDesc">every Thursday at 3:00 AM</p>
+    </div>
+    <button class="gear" id="gearBtn" aria-expanded="false" aria-controls="settings" title="Settings">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>
+      </svg>
+      <span class="sr">Settings</span>
+    </button>
+  </header>
+
+  <div class="gauge-wrap">
+    <svg class="gauge" viewBox="40 20 320 320" role="img" aria-labelledby="gaugeTitle">
+      <title id="gaugeTitle">Week progress gauge</title>
+      <defs>
+        <radialGradient id="faceGrad" cx="38%" cy="28%" r="82%">
+          <stop offset="0%" stop-color="var(--face-1)"/>
+          <stop offset="72%" stop-color="var(--face-2)"/>
+          <stop offset="100%" stop-color="var(--face-edge)"/>
+        </radialGradient>
+        <linearGradient id="bezelGrad" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0%" stop-color="var(--bezel-1)"/>
+          <stop offset="42%" stop-color="var(--bezel-2)"/>
+          <stop offset="58%" stop-color="var(--bezel-1)"/>
+          <stop offset="100%" stop-color="var(--bezel-2)"/>
+        </linearGradient>
+        <linearGradient id="glassGrad" x1="0" y1="0" x2="0.25" y2="1">
+          <stop offset="0%" stop-color="#fff" stop-opacity=".55"/>
+          <stop offset="45%" stop-color="#fff" stop-opacity=".10"/>
+          <stop offset="46%" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
+        <filter id="faceShadow" x="-25%" y="-25%" width="150%" height="150%">
+          <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity=".45"/>
+        </filter>
+        <filter id="needleShadow" x="-60%" y="-60%" width="220%" height="220%">
+          <feDropShadow dx="1.5" dy="3" stdDeviation="2.2" flood-color="#000" flood-opacity=".38"/>
+        </filter>
+      </defs>
+
+      <!-- bezel + face -->
+      <circle cx="200" cy="180" r="154" fill="url(#bezelGrad)" filter="url(#faceShadow)"/>
+      <circle cx="200" cy="180" r="146" fill="none" stroke="#000" stroke-opacity=".28" stroke-width="2"/>
+      <circle cx="200" cy="180" r="144" fill="url(#faceGrad)"/>
+
+      <!-- redline zones -->
+      <g id="zones" fill="none" stroke-linecap="butt" stroke-width="9" opacity=".9"></g>
+      <!-- tick marks -->
+      <g id="ticks" stroke="var(--ink)" stroke-linecap="round"></g>
+      <g id="tickLabels" fill="var(--ink-soft)" font-size="12" font-weight="600"
+         text-anchor="middle" dominant-baseline="middle"
+         font-family="ui-monospace,SFMono-Regular,Menlo,monospace"></g>
+
+      <!-- progress ring: track + fill -->
+      <path id="progTrack" fill="none" stroke="var(--face-edge)" stroke-opacity=".55" stroke-width="13" stroke-linecap="round"/>
+      <path id="progArc" class="prog-arc" fill="none" stroke="var(--accent)" stroke-width="13" stroke-linecap="round"/>
+
+      <!-- center readout -->
+      <text x="200" y="146" text-anchor="middle" fill="var(--ink-soft)" font-size="11"
+            letter-spacing="2.4" font-weight="700">ELAPSED</text>
+      <text id="bigPct" x="200" y="188" text-anchor="middle" fill="var(--ink)" font-size="46"
+            font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,monospace"
+            letter-spacing="-1">0.0%</text>
+      <text id="remPct" x="200" y="212" text-anchor="middle" fill="var(--ink-soft)" font-size="13"
+            font-family="ui-monospace,SFMono-Regular,Menlo,monospace">100.0% left</text>
+      <text id="statusText" x="200" y="252" text-anchor="middle" fill="var(--ink-soft)" font-size="10.5"
+            letter-spacing="1.8" font-weight="700">—</text>
+
+      <!-- needle -->
+      <g id="needle" class="needle" filter="url(#needleShadow)" transform="rotate(-135 200 180)">
+        <polygon points="200,46 205.5,108 194.5,108" fill="var(--red)"/>
+        <polygon points="200,46 200,108 194.5,108" fill="#fff" fill-opacity=".22"/>
+        <circle cx="200" cy="112" r="4.5" fill="var(--red)"/>
+      </g>
+
+      <!-- glass -->
+      <circle cx="200" cy="180" r="144" fill="url(#glassGrad)" pointer-events="none"/>
+    </svg>
+  </div>
+
+  <section class="meter" aria-hidden="true">
+    <div class="meter-scale"><span>ELAPSED</span><span id="barPct">0.0%</span></div>
+    <div class="trough"><div class="fill" id="fill"></div></div>
+    <div class="ticks-row"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+  </section>
+
+  <section class="plates">
+    <div class="plate wide">
+      <div class="k">Time remaining</div>
+      <div class="v big" id="remTime">—</div>
+    </div>
+    <div class="plate">
+      <div class="k">Time elapsed</div>
+      <div class="v small" id="elTime">—</div>
+    </div>
+    <div class="plate">
+      <div class="k">Next</div>
+      <div class="v small" id="nextAt">—</div>
+    </div>
+  </section>
+
+  <div class="settings" id="settings" role="region" aria-label="Countdown settings">
+    <label class="field">
+      <span>Label</span>
+      <input type="text" id="inLabel" maxlength="40" placeholder="Weekly Reset">
+    </label>
+    <div class="row">
+      <label class="field">
+        <span>Day</span>
+        <select id="inDay">
+          <option value="0">Sunday</option><option value="1">Monday</option>
+          <option value="2">Tuesday</option><option value="3">Wednesday</option>
+          <option value="4">Thursday</option><option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Time</span>
+        <input type="time" id="inTime" step="60">
+      </label>
+    </div>
+    <button class="btn" id="resetBtn" type="button">Reset to Thursday 3:00 AM</button>
+  </div>
+
+  <footer>
+    <span id="tz">—</span>
+    <span id="cycleStart">—</span>
+  </footer>
+
+  <p class="sr" id="live" aria-live="polite"></p>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  var DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  var KEY = "weekly-countdown:v1";
+  var DEFAULTS = { label:"Weekly Reset", weekday:4, time:"03:00" };
+
+  var state = load();
+
+  function load(){
+    var s = Object.assign({}, DEFAULTS);
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){
+        var o = JSON.parse(raw);
+        if(typeof o.label === "string") s.label = o.label;
+        if(isDay(o.weekday)) s.weekday = +o.weekday;
+        if(isTime(o.time)) s.time = o.time;
+      }
+    }catch(e){}
+    // URL params win, so a configured link is shareable: ?day=4&time=03:00&label=Reset
+    try{
+      var q = new URLSearchParams(location.search);
+      if(q.has("day")){
+        var d = q.get("day");
+        var idx = DAYS.findIndex(function(n){ return n.toLowerCase().slice(0,3) === String(d).toLowerCase().slice(0,3); });
+        if(isDay(d)) s.weekday = +d; else if(idx >= 0) s.weekday = idx;
+      }
+      if(isTime(q.get("time"))) s.time = q.get("time");
+      if(q.get("label")) s.label = q.get("label").slice(0,40);
+    }catch(e){}
+    return s;
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+  }
+  function isDay(v){ return v !== null && v !== "" && isFinite(v) && +v >= 0 && +v <= 6; }
+  function isTime(v){ return typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v); }
+
+  // --- schedule math (local time, DST-safe via calendar arithmetic) ---
+  function nextOccurrence(now){
+    var parts = state.time.split(":");
+    var d = new Date(now.getTime());
+    d.setHours(+parts[0], +parts[1], 0, 0);
+    d.setDate(d.getDate() + ((state.weekday - d.getDay() + 7) % 7));
+    if(d.getTime() <= now.getTime()) d.setDate(d.getDate() + 7);
+    return d;
+  }
+  function prevOccurrence(next){
+    var p = new Date(next.getTime());
+    p.setDate(p.getDate() - 7);      // keeps wall-clock time across DST shifts
+    return p;
+  }
+
+  // --- gauge geometry: 270 degree sweep, -135 to +135 from 12 o'clock ---
+  var CX = 200, CY = 180, SWEEP = 270, START = -135;
+  function ang(t){ return START + SWEEP * t; }
+  function pt(t, r){
+    var a = ang(t) * Math.PI / 180;
+    return [CX + r * Math.sin(a), CY - r * Math.cos(a)];
+  }
+  function arcPath(t0, t1, r){
+    var a = pt(t0, r), b = pt(t1, r);
+    var large = (SWEEP * (t1 - t0)) > 180 ? 1 : 0;
+    return "M" + a[0].toFixed(2) + " " + a[1].toFixed(2) +
+           " A" + r + " " + r + " 0 " + large + " 1 " + b[0].toFixed(2) + " " + b[1].toFixed(2);
+  }
+
+  var el = {};
+  ["label","targetDesc","gearBtn","settings","inLabel","inDay","inTime","resetBtn",
+   "zones","ticks","tickLabels","progTrack","progArc","bigPct","remPct","statusText",
+   "needle","fill","barPct","remTime","elTime","nextAt","tz","cycleStart","live","panel"]
+   .forEach(function(id){ el[id] = document.getElementById(id); });
+
+  // static gauge furniture
+  (function buildFace(){
+    var NS = "http://www.w3.org/2000/svg";
+    var zones = [[0, .70, "var(--zone-ok)"], [.70, .90, "var(--zone-warn)"], [.90, 1, "var(--zone-hot)"]];
+    zones.forEach(function(z){
+      var p = document.createElementNS(NS, "path");
+      p.setAttribute("d", arcPath(z[0], z[1], 140));
+      p.setAttribute("stroke", z[2]);
+      el.zones.appendChild(p);
+    });
+
+    for(var i = 0; i <= 20; i++){
+      var t = i / 20, major = i % 5 === 0;
+      var a = pt(t, 128), b = pt(t, major ? 114 : 122);
+      var ln = document.createElementNS(NS, "line");
+      ln.setAttribute("x1", a[0].toFixed(2)); ln.setAttribute("y1", a[1].toFixed(2));
+      ln.setAttribute("x2", b[0].toFixed(2)); ln.setAttribute("y2", b[1].toFixed(2));
+      ln.setAttribute("stroke-width", major ? 3 : 1.4);
+      ln.setAttribute("stroke-opacity", major ? .85 : .45);
+      el.ticks.appendChild(ln);
+
+      if(major){
+        var c = pt(t, 98);
+        var tx = document.createElementNS(NS, "text");
+        tx.setAttribute("x", c[0].toFixed(2)); tx.setAttribute("y", c[1].toFixed(2));
+        tx.textContent = Math.round(t * 100);
+        el.tickLabels.appendChild(tx);
+      }
+    }
+    el.progTrack.setAttribute("d", arcPath(0, 1, 78));
+    el.progArc.setAttribute("d", arcPath(0, 1, 78));
+    var len = el.progArc.getTotalLength();
+    el.progArc.dataset.len = len;
+    el.progArc.style.strokeDasharray = "0 " + len;
+  })();
+
+  function fmtDuration(ms){
+    var s = Math.max(0, Math.floor(ms / 1000));
+    var d = Math.floor(s / 86400); s -= d * 86400;
+    var h = Math.floor(s / 3600);  s -= h * 3600;
+    var m = Math.floor(s / 60);    s -= m * 60;
+    var p2 = function(n){ return n < 10 ? "0" + n : "" + n; };
+    if(d > 0) return d + "d " + p2(h) + "h " + p2(m) + "m " + p2(s) + "s";
+    if(h > 0) return h + "h " + p2(m) + "m " + p2(s) + "s";
+    return m + "m " + p2(s) + "s";
+  }
+  function fmtDateTime(d){
+    try{
+      return d.toLocaleString(undefined, {
+        weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"
+      }).replace(/^(\S+),/, "$1");
+    }catch(e){ return d.toString(); }
+  }
+  function fmtClock(){
+    var p = state.time.split(":"), h = +p[0], m = p[1];
+    var d = new Date(); d.setHours(h, +m, 0, 0);
+    try{ return d.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"}); }
+    catch(e){ return state.time; }
+  }
+  function statusFor(pct, remainMs){
+    if(remainMs < 60000)  return "RESETTING";
+    if(pct < 25)  return "FRESH WEEK";
+    if(pct < 60)  return "ON PACE";
+    if(pct < 85)  return "BACK HALF";
+    if(pct < 97)  return "FINAL STRETCH";
+    return "ANY MINUTE NOW";
+  }
+
+  var lastNextTs = null, lastLiveMin = null;
+
+  function render(){
+    var now = new Date();
+    var next = nextOccurrence(now);
+    var prev = prevOccurrence(next);
+    var span = next - prev;
+    var t = Math.min(1, Math.max(0, (now - prev) / span));
+    var pct = t * 100;
+    var remainMs = next - now;
+
+    if(lastNextTs !== null && next.getTime() !== lastNextTs){
+      el.panel.classList.add("flash");
+      setTimeout(function(){ el.panel.classList.remove("flash"); }, 1700);
+    }
+    lastNextTs = next.getTime();
+
+    // gauge
+    el.needle.setAttribute("transform", "rotate(" + ang(t).toFixed(3) + " " + CX + " " + CY + ")");
+    var len = +el.progArc.dataset.len;
+    el.progArc.style.strokeDasharray = (len * t).toFixed(2) + " " + len;
+    el.progArc.setAttribute("stroke", pct >= 90 ? "var(--zone-hot)" : pct >= 70 ? "var(--zone-warn)" : "var(--accent)");
+
+    el.bigPct.textContent = pct.toFixed(1) + "%";
+    el.remPct.textContent = (100 - pct).toFixed(1) + "% left";
+    el.statusText.textContent = statusFor(pct, remainMs);
+
+    // linear meter
+    el.fill.style.width = "calc(" + t + " * (100% - 4px))";
+    el.fill.className = "fill" + (pct >= 90 ? " hot" : pct >= 70 ? " warn" : "");
+    el.barPct.textContent = pct.toFixed(1) + "%";
+
+    // plates
+    el.remTime.textContent = fmtDuration(remainMs);
+    el.elTime.textContent = fmtDuration(now - prev);
+    el.nextAt.textContent = fmtDateTime(next);
+    el.cycleStart.textContent = "cycle began " + fmtDateTime(prev);
+
+    // screen-reader summary, refreshed once a minute
+    var mins = Math.floor(remainMs / 60000);
+    if(mins !== lastLiveMin){
+      lastLiveMin = mins;
+      el.live.textContent = pct.toFixed(0) + " percent of the week elapsed, " +
+        (100 - pct).toFixed(0) + " percent remaining. " + fmtDuration(remainMs) +
+        " until " + fmtDateTime(next) + ".";
+    }
+  }
+
+  function applyStatic(){
+    el.label.textContent = state.label || "Weekly Countdown";
+    el.targetDesc.textContent = "every " + DAYS[state.weekday] + " at " + fmtClock();
+    document.title = (state.label || "Weekly Countdown") + " — countdown";
+    el.inLabel.value = state.label;
+    el.inDay.value = String(state.weekday);
+    el.inTime.value = state.time;
+    try{ el.tz.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || "local time"; }
+    catch(e){ el.tz.textContent = "local time"; }
+  }
+
+  // --- settings wiring ---
+  el.gearBtn.addEventListener("click", function(){
+    var open = el.settings.classList.toggle("open");
+    el.gearBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if(open) el.inLabel.focus();
+  });
+  el.inLabel.addEventListener("input", function(){
+    state.label = el.inLabel.value.slice(0, 40); save(); applyStatic();
+  });
+  el.inDay.addEventListener("change", function(){
+    state.weekday = +el.inDay.value; save(); applyStatic(); lastLiveMin = null; render();
+  });
+  el.inTime.addEventListener("change", function(){
+    if(isTime(el.inTime.value)){ state.time = el.inTime.value; save(); applyStatic(); lastLiveMin = null; render(); }
+  });
+  el.resetBtn.addEventListener("click", function(){
+    state = Object.assign({}, DEFAULTS); save(); applyStatic(); lastLiveMin = null; render();
+  });
+
+  applyStatic();
+  render();
+
+  // animation-frame loop, throttled to ~8fps of DOM work
+  var last = 0;
+  (function loop(ts){
+    if(!last || ts - last > 120){ last = ts; render(); }
+    requestAnimationFrame(loop);
+  })(0);
+
+  document.addEventListener("visibilitychange", function(){
+    if(!document.hidden){ lastLiveMin = null; render(); }
+  });
+})();
+</script>
+</body>
+</html>
