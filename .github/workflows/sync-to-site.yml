@@ -1,0 +1,123 @@
+# Copy this repo's index.html into the personal site repo whenever the page
+# changes, so ryanarnaudin.com/sites/countdown/ never drifts from the source.
+#
+# SETUP (one time):
+#   1. Reuse the fine-grained personal access token that Steep and Breathe
+#      already share, or create another the same way:
+#        GitHub -> Settings -> Developer settings -> Personal access tokens ->
+#        Fine-grained tokens -> Generate new token
+#      Scope it as narrowly as it goes:
+#        Repository access : Only select repositories -> arnaudin/arnaudin.github.io
+#        Permissions       : Repository permissions -> Contents -> Read and write
+#      Contents write is the only permission this workflow needs. Nothing else.
+#   2. In THIS repo: Settings -> Secrets and variables -> Actions ->
+#      New repository secret, named SITE_REPO_TOKEN, with that token as the value.
+#   3. First run: DRY_RUN below is "true", so the job prints the diff and pushes
+#      nothing. Trigger it from the Actions tab with Run workflow, tick "force",
+#      and read the "What would change" step. Force matters only on that first
+#      run: the site already holds a byte-identical copy placed there by hand, so
+#      without it the job correctly reports nothing to do and the old hand-written
+#      header never gets replaced. Confirm the diff touches only
+#      sites/countdown/index.html, then set DRY_RUN to "false" and commit that.
+#
+# Pushing with a PAT rather than the built-in GITHUB_TOKEN means the site repo's
+# own build-and-deploy workflow DOES fire on the resulting commit, so the change
+# reaches Namecheap without another click. That workflow never pushes back, so
+# there is no loop.
+name: Sync Weekly Countdown to the site
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["index.html"]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rewrite the header even if the body is unchanged"
+        type: boolean
+        default: false
+
+# This job reads this repo with the default token and writes the site repo with
+# the PAT, so no elevated default permissions are needed here.
+permissions:
+  contents: read
+
+# Never let two syncs race to push the same file.
+concurrency:
+  group: "sync-countdown"
+  cancel-in-progress: false
+
+env:
+  # Flip to "false" once a dry run looks right.
+  DRY_RUN: "true"
+  SITE_REPO: "arnaudin/arnaudin.github.io"
+  DEST: "sites/countdown/index.html"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the countdown
+        uses: actions/checkout@v7
+        with:
+          path: countdown
+
+      - name: Check out the site
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.SITE_REPO }}
+          token: ${{ secrets.SITE_REPO_TOKEN }}
+          path: site
+
+      - name: Stamp the header and write the copy
+        id: copy
+        run: |
+          python3 countdown/.github/scripts/sync_countdown.py \
+            "countdown/index.html" \
+            "site/${DEST}" \
+            "$(git -C countdown rev-parse --short HEAD)" \
+            ${{ inputs.force && '--force' || '' }}
+
+      - name: What would change
+        working-directory: site
+        run: |
+          if [ "${{ steps.copy.outputs.changed }}" != "true" ]; then
+            echo "The site copy already matches the source. Nothing to do."
+            exit 0
+          fi
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "The stamped copy is identical to what is already committed. Nothing to do."
+            exit 0
+          fi
+          echo "Files touched:"
+          git status --short
+          echo
+          echo "Diff:"
+          git --no-pager diff -- "${DEST}"
+          echo
+          # The checkout is clean, so exactly one path may differ. Anything else
+          # means the script wrote somewhere unexpected; stop before pushing.
+          touched="$(git status --porcelain | awk '{print $2}')"
+          if [ "$touched" != "${DEST}" ]; then
+            echo "::error::Expected only ${DEST} to change, got: ${touched}"
+            exit 1
+          fi
+
+      - name: Commit and push
+        if: steps.copy.outputs.changed == 'true' && env.DRY_RUN == 'false'
+        working-directory: site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${DEST}"
+          if git diff --cached --quiet; then
+            echo "Nothing staged; the copy was already up to date."
+            exit 0
+          fi
+          git commit -m "Sync Weekly Countdown from weekly-countdown@$(git -C ../countdown rev-parse --short HEAD)"
+          git push
+
+      - name: Dry run notice
+        if: steps.copy.outputs.changed == 'true' && env.DRY_RUN != 'false'
+        run: |
+          echo "::notice::DRY_RUN is true, so nothing was pushed. Set DRY_RUN to \"false\" in this workflow to go live."
