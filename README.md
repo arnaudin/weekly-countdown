@@ -99,12 +99,11 @@ unchanged page reports no change rather than manufacturing a commit whose only
 difference is the date. It also refuses to run if the source ever grows front
 matter, and it stops before pushing if anything other than that one file differs.
 
-Two things it does not cover:
+One thing it does not cover: the thumbnail at `images/experiments/countdown.jpg`
+in the site repo is a still of the page, and only needs redoing if the design
+changes noticeably. Regenerate it and run that repo's `tools/optimize-images.sh`.
 
-- The thumbnail at `images/experiments/countdown.jpg` in the site repo is a still
-  of the page and only needs redoing if the design changes noticeably. Regenerate
-  it and run that repo's `tools/optimize-images.sh`.
-- The site already holds a byte-identical copy that was placed there by hand before
-  this repo existed, so the first sync has nothing to do by its own comparison. Run
-  the workflow once from the Actions tab with **force** ticked to replace that
-  hand-written header; after that, ordinary pushes are enough.
+Running the workflow by hand also offers a **force** input, which rewrites the
+header even when the body has not changed. It was needed exactly once, to replace
+the header the site copy carried from before this repo existed; ordinary pushes
+have not needed it since.
