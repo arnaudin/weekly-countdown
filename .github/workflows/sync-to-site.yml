@@ -49,7 +49,7 @@ concurrency:
 
 env:
   # Flip to "false" once a dry run looks right.
-  DRY_RUN: "true"
+  DRY_RUN: "false"
   SITE_REPO: "arnaudin/arnaudin.github.io"
   DEST: "sites/countdown/index.html"
 
