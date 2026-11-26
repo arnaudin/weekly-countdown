@@ -1,6 +1,6 @@
 # Weekly Countdown
 
-A dial for a recurring weekly moment — a quota or token reset, a sprint boundary,
+A dial for a recurring weekly moment: a quota or token reset, a sprint boundary,
 a billing cycle, anything that comes back around on the same day each week.
 
 **Live at [ryanarnaudin.com/sites/countdown/](https://ryanarnaudin.com/sites/countdown/)**
@@ -16,7 +16,7 @@ much is left, with the actual time remaining as a secondary readout.
 Open [ryanarnaudin.com/sites/countdown/](https://ryanarnaudin.com/sites/countdown/)
 and leave the tab somewhere you can see it.
 
-To run it locally instead, open `index.html` in a browser — double-click the file,
+To run it locally instead, open `index.html` in a browser. Double-click the file,
 or serve the folder if you prefer a URL:
 
 ```bash
@@ -82,6 +82,7 @@ bookmark can point at a different deadline than the one you normally watch:
 |---|---|
 | `index.html` | The whole application |
 | `screenshots/` | Images used by this README |
+| `LICENSE` | MIT license |
 | `.github/workflows/sync-to-site.yml` | Copies the page to the personal site on push |
 | `.github/scripts/sync_countdown.py` | Stamps the provenance header onto that copy |
 
@@ -107,3 +108,7 @@ Running the workflow by hand also offers a **force** input, which rewrites the
 header even when the body has not changed. It was needed exactly once, to replace
 the header the site copy carried from before this repo existed; ordinary pushes
 have not needed it since.
+
+## License
+
+MIT; see [LICENSE](LICENSE).
